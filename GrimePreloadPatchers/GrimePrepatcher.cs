@@ -1,5 +1,4 @@
-﻿using BepInEx.Preloader.Core.Patching;
-using Mono.Cecil;
+﻿using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using System.Collections;
@@ -8,22 +7,30 @@ using System.Linq;
 
 namespace GrimePreloadPatchers
 {
-    [PatcherPluginInfo("com.badmagic.grimepreloaderplugin", "Grime Preloader Patchers", "0.1.0")]
-    public class GrimePrepatcher : BasePatcher
+    public static class Patcher
     {
-        [TargetType("Rewired_Core.dll", "Rewired.Utils.Classes.Data.ADictionary`2")]
-        public void PatchADictionary(TypeDefinition type)
+        private static readonly HashSet<string> dictionaryTypes = [
+            "Rewired.Utils.Classes.Data.ADictionary`2",
+            "Rewired.Utils.Classes.Data.IndexedDictionary`2"
+        ];
+
+        public static IEnumerable<string> TargetDLLs => ["Rewired_Core.dll"];
+
+        public static void Patch(AssemblyDefinition assembly)
         {
-            PatchDictionaryType(type);
-        }
-        
-        [TargetType("Rewired_Core.dll", "Rewired.Utils.Classes.Data.IndexedDictionary`2")]
-        public void PatchIndexedDictionary(TypeDefinition type)
-        {
-            PatchDictionaryType(type);
+            foreach (ModuleDefinition module in assembly.Modules)
+            {
+                foreach (TypeDefinition type in module.Types)
+                {
+                    if (dictionaryTypes.Contains(type.FullName))
+                    {
+                        PatchDictionaryType(type);
+                    }
+                }
+            }
         }
 
-        private void PatchDictionaryType(TypeDefinition type)
+        private static void PatchDictionaryType(TypeDefinition type)
         {
             TypeReference _iCollection = type.Module.ImportReference(typeof(ICollection<>));
 
@@ -46,7 +53,7 @@ namespace GrimePreloadPatchers
                 _keyCollection);
         }
 
-        private void CreateShimIntLikeProperty(TypeDefinition typeToModify, PropertyDefinition implementing)
+        private static void CreateShimIntLikeProperty(TypeDefinition typeToModify, PropertyDefinition implementing)
         {
             string prefix = implementing.DeclaringType.FullName + ".";
             MethodDefinition getter = new(prefix + implementing.GetMethod.Name, BuildAttrs(), implementing.PropertyType);
@@ -63,7 +70,7 @@ namespace GrimePreloadPatchers
             typeToModify.Properties.Add(prop);
         }
 
-        private void CreateWrapperProperty(
+        private static void CreateWrapperProperty(
             string prefix,
             TypeDefinition typeToModify,
             PropertyDefinition implementing,
@@ -87,13 +94,13 @@ namespace GrimePreloadPatchers
             typeToModify.Properties.Add(prop);
         }
 
-        private MethodAttributes BuildAttrs()
+        private static MethodAttributes BuildAttrs()
         {
             return MethodAttributes.Private | MethodAttributes.Final | MethodAttributes.Virtual 
                 | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.SpecialName;
         }
 
-        private MethodReference CloneMethodReferenceGeneric(MethodReference method, params TypeReference[] arguments)
+        private static MethodReference CloneMethodReferenceGeneric(MethodReference method, params TypeReference[] arguments)
         {
             MethodReference clone = new MethodReference(method.Name, method.ReturnType, method.DeclaringType.MakeGenericInstanceType(arguments))
             {

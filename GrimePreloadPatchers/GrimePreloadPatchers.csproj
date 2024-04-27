@@ -1,38 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net35</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup>
-      <Refs>D:\Program Files\Steam\steamapps\common\GRIME\BepInEx\core\</Refs>
       <OutputDir>D:\Program Files\Steam\steamapps\common\GRIME\BepInEx\patchers</OutputDir>
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="BepInEx.Core">
-      <HintPath>$(Refs)\BepInEx.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="BepInEx.Preloader.Core">
-      <HintPath>$(Refs)\BepInEx.Preloader.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="BepInEx.Unity.Common">
-      <HintPath>$(Refs)\BepInEx.Unity.Common.dll</HintPath>
-    </Reference>
-    <Reference Include="BepInEx.Unity.Mono">
-      <HintPath>$(Refs)\BepInEx.Unity.Mono.dll</HintPath>
-    </Reference>
-    <Reference Include="BepInEx.Unity.Mono.Preloader">
-      <HintPath>$(Refs)\BepInEx.Unity.Mono.Preloader.dll</HintPath>
-    </Reference>
-    <Reference Include="Mono.Cecil">
-      <HintPath>$(Refs)\Mono.Cecil.dll</HintPath>
-    </Reference>
-    <Reference Include="Mono.Cecil.Rocks">
-      <HintPath>$(Refs)\Mono.Cecil.Rocks.dll</HintPath>
-    </Reference>
+      <PackageReference Include="Mono.Cecil" Version="0.10.4"/>
   </ItemGroup>
 
   <Target Name="CopyOutputs" AfterTargets="PostBuildEvent">
