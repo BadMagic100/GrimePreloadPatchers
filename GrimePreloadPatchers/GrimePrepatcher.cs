@@ -32,28 +32,15 @@ namespace GrimePreloadPatchers
 
         private static void PatchDictionaryType(TypeDefinition type)
         {
-            TypeReference _iCollection = type.Module.ImportReference(typeof(ICollection<>));
-
             TypeDefinition _iDictionary = type.Module.ImportReference(typeof(IDictionary)).Resolve();
-            // resolve will drop all the generic params, no point to make a generic instance of this
-            TypeDefinition _iDictionaryTkeyTValue = type.Module.ImportReference(typeof(IDictionary<,>))
-                .Resolve();
 
-            PropertyDefinition keysProp = type.Properties.First(p => p.Name == "System.Collections.IDictionary.Keys");
-            TypeReference _keyCollection = _iCollection.MakeGenericInstanceType(type.GenericParameters.First());
+            CreateShimIntBoolProperty(type, _iDictionary.Properties.First(p => p.Name == "IsFixedSize"));
+            CreateShimIntBoolProperty(type, _iDictionary.Properties.First(p => p.Name == "IsReadOnly"));
 
-            CreateShimIntLikeProperty(type, _iDictionary.Properties.First(p => p.Name == "IsFixedSize"));
-            CreateShimIntLikeProperty(type, _iDictionary.Properties.First(p => p.Name == "IsReadOnly"));
-
-            CreateWrapperProperty(
-                "System.Collections.Generic.IDictionary<TKey,TValue>.",
-                type,
-                _iDictionaryTkeyTValue.Properties.First(p => p.Name == "Keys"),
-                keysProp,
-                _keyCollection);
+            CreateGenericIDictionaryKeysProperty(type);
         }
 
-        private static void CreateShimIntLikeProperty(TypeDefinition typeToModify, PropertyDefinition implementing)
+        private static void CreateShimIntBoolProperty(TypeDefinition typeToModify, PropertyDefinition implementing)
         {
             string prefix = implementing.DeclaringType.FullName + ".";
             MethodDefinition getter = new(prefix + implementing.GetMethod.Name, BuildAttrs(), implementing.PropertyType);
@@ -70,24 +57,29 @@ namespace GrimePreloadPatchers
             typeToModify.Properties.Add(prop);
         }
 
-        private static void CreateWrapperProperty(
-            string prefix,
-            TypeDefinition typeToModify,
-            PropertyDefinition implementing,
-            PropertyDefinition propToWrap,
-            TypeReference propType)
+        private static void CreateGenericIDictionaryKeysProperty(TypeDefinition typeToModify)
         {
-            MethodDefinition getter = new(prefix + implementing.GetMethod.Name, BuildAttrs(), propType);
+            const string prefix = "System.Collections.Generic.IDictionary<TKey,TValue>.";
+            TypeReference _iCollection = typeToModify.Module.ImportReference(typeof(ICollection<>));
+            // resolve will drop all the generic params, no point to make a generic instance of this
+            TypeDefinition _iDictionaryTkeyTValue = typeToModify.Module.ImportReference(typeof(IDictionary<,>))
+                .Resolve();
+
+            PropertyDefinition propToWrap = typeToModify.Properties.First(p => p.Name == "System.Collections.IDictionary.Keys");
+            PropertyDefinition propToImplement = _iDictionaryTkeyTValue.Properties.First(p => p.Name == "Keys");
+            TypeReference _keyCollection = _iCollection.MakeGenericInstanceType(typeToModify.GenericParameters.First());
+
+            MethodDefinition getter = new(prefix + propToImplement.GetMethod.Name, BuildAttrs(), _keyCollection);
             ILProcessor proc = getter.Body.GetILProcessor();
             proc.Append(proc.Create(OpCodes.Ldarg_0));
             proc.Append(proc.Create(OpCodes.Callvirt, propToWrap.GetMethod));
             proc.Append(proc.Create(OpCodes.Ret));
-            MethodReference overriden = typeToModify.Module.ImportReference(implementing.GetMethod);
+            MethodReference overriden = typeToModify.Module.ImportReference(propToImplement.GetMethod);
             overriden = CloneMethodReferenceGeneric(overriden, typeToModify.GenericParameters.ElementAt(0), typeToModify.GenericParameters.ElementAt(1));
             getter.Overrides.Add(overriden);
             typeToModify.Methods.Add(getter);
 
-            PropertyDefinition prop = new(prefix + implementing.Name, PropertyAttributes.None, propType)
+            PropertyDefinition prop = new(prefix + propToImplement.Name, PropertyAttributes.None, _keyCollection)
             {
                 GetMethod = getter
             };
